@@ -11,43 +11,28 @@ st.set_page_config(
     layout="centered"
 )
 
-ASSISTANT_ICON = "🏘"
+ASSISTANT_ICON = "🤖"
 USER_ICON = "👤"
 
-# =================🏘
+# ======================
 # CSS（🔥 右上ポイントバー）
 # ======================
 st.markdown("""
 <style>
 
-/* 右上ポイントバー */
+/* 右上ポイント表示（シンプル） */
 .point-bar {
     position: fixed;
     top: 15px;
     right: 20px;
-    background: rgba(255, 215, 0, 0.85);
-    color: #333;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
     padding: 10px 18px;
-    border-radius: 14px;
+    border-radius: 10px;
     font-weight: bold;
-    font-size: 16px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    backdrop-filter: blur(8px);
+    font-size: 18px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     z-index: 9999;
-    animation: fadeIn 0.5s ease;
-}
-
-/* アニメーション */
-@keyframes fadeIn {
-    from {opacity: 0; transform: translateY(-10px);}
-    to {opacity: 1; transform: translateY(0);}
-}
-
-/* レベル表示 */
-.point-rank {
-    font-size: 12px;
-    margin-top: 3px;
-    text-align: right;
 }
 
 </style>
@@ -68,29 +53,20 @@ for key, val in {
         st.session_state[key] = val
 
 # ======================
-# 🎯 ポイントバー表示
+# 🎯 ポイントバー表示（※シンプル版）
 # ======================
 points = st.session_state.points
-
-# ランク表示
-if points >= 30:
-    rank = "🏆 シルバー"
-elif points >= 10:
-    rank = "🥉 ブロンズ"
-else:
-    rank = "🔰 ビギナー"
 
 st.markdown(f"""
 <div class="point-bar">
     ⭐ {points} pt
-    <div class="point-rank">{rank}</div>
 </div>
 """, unsafe_allow_html=True)
 
 # ======================
 # Dify設定
 # ======================
-DIFY_API_KEY = "app-Z8GvU88Jz1vwO81JXnV8SLL9 "  # ←自分のキーに
+DIFY_API_KEY = "app-Z8GvU88Jz1vwO81JXnV8SLL9"
 BASE_URL = "https://api.dify.ai/v1"
 
 def chat_with_dify(message):
@@ -148,10 +124,11 @@ for msg in st.session_state.messages:
 user_input = st.chat_input("質問を入力してください")
 
 # ======================
-# 入力処理
+# 入力処理（チャット送信）
 # ======================
 if user_input:
 
+    # ⭐ポイント加算（チャット送信）
     st.session_state.points += 1
 
     st.session_state.messages.append(
@@ -161,6 +138,7 @@ if user_input:
     with st.chat_message("user", avatar=USER_ICON):
         st.markdown(user_input)
 
+    # ローンモードへ切り替え
     if any(w in user_input for w in ["ローン", "返済", "金利"]):
         st.session_state.mode = "loan"
         st.session_state.step = 1
@@ -173,6 +151,7 @@ if st.session_state.mode == "loan":
     st.divider()
     st.subheader("🏦 ローンシミュレーション")
 
+    # ---- STEP1 部屋選択 ----
     if st.session_state.step == 1:
         st.markdown("**201・202・203・204 から選択してください👇**")
 
@@ -182,6 +161,9 @@ if st.session_state.mode == "loan":
         for i, room in enumerate(rooms):
             if cols[i].button(f"{room}号室"):
 
+                # ⭐ポイント加算（部屋選択）
+                st.session_state.points += 2
+
                 price = df_rooms[df_rooms["room"] == room]["price"].values
 
                 if len(price) > 0:
@@ -189,24 +171,38 @@ if st.session_state.mode == "loan":
                     st.session_state.data["loan"] = loan
                     st.session_state.step = 2
 
+    # ---- STEP2 年数入力 ----
     elif st.session_state.step == 2:
         years = st.number_input("返済年数（年）", 1, 50, 35)
 
         if st.button("次へ"):
+
+            # ⭐ポイント加算（年数確定）
+            st.session_state.points += 1
+
             st.session_state.data["years"] = years
             st.session_state.step = 3
 
+    # ---- STEP3 金利 ----
     elif st.session_state.step == 3:
         rate = st.number_input("年利（例：0.01）", value=0.01)
 
         if st.button("次へ"):
+
+            # ⭐ポイント加算（金利確定）
+            st.session_state.points += 1
+
             st.session_state.data["rate"] = rate
             st.session_state.step = 4
 
+    # ---- STEP4 返済方式 + 計算 ----
     elif st.session_state.step == 4:
         method = st.radio("返済方式", ["元利均等", "元金均等"])
 
         if st.button("計算する"):
+
+            # ⭐ポイント加算（計算実行）
+            st.session_state.points += 3
 
             loan = st.session_state.data["loan"]
             years = st.session_state.data["years"]
@@ -270,7 +266,7 @@ if user_input and st.session_state.mode == "free":
             )
 
 # ======================
-# 📊 結果
+# 📊 シミュレーション結果
 # ======================
 if st.session_state.result is not None:
 
