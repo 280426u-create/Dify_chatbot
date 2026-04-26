@@ -15,23 +15,20 @@ ASSISTANT_ICON = "🤖"
 USER_ICON = "👤"
 
 # ======================
-# CSS（🔥 右上ポイントバー）
+# CSS（右上ポイント表示・シンプル）
 # ======================
 st.markdown("""
 <style>
 
-/* 右上ポイント表示（シンプル） */
 .point-bar {
     position: fixed;
-    top: 70px;
-    right: 30px;
-    background: rgba(0, 0, 0, 0.8);
+    top: 20px;
+    right: 20px;
+    background: rgba(0,0,0,0.75);
     color: white;
-    padding: 10px 18px;
-    border-radius: 10px;
-    font-weight: bold;
-    font-size: 18px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 14px;
     z-index: 9999;
 }
 
@@ -48,25 +45,24 @@ for key, val in {
     "data": {},
     "result": None,
     "points": 0,
+    "room_done": False
 }.items():
     if key not in st.session_state:
         st.session_state[key] = val
 
 # ======================
-# 🎯 ポイントバー表示（※シンプル版）
+# ポイント表示（数値のみ）
 # ======================
-points = st.session_state.points
-
 st.markdown(f"""
 <div class="point-bar">
-    ⭐ {points} pt
+    {st.session_state.points}
 </div>
 """, unsafe_allow_html=True)
 
 # ======================
 # Dify設定
 # ======================
-DIFY_API_KEY = "app-Z8GvU88Jz1vwO81JXnV8SLL9"
+DIFY_API_KEY = "app-Z8GvU88jZ1vwO81XnV8SLL9"
 BASE_URL = "https://api.dify.ai/v1"
 
 def chat_with_dify(message):
@@ -91,9 +87,7 @@ def chat_with_dify(message):
         text = data.get("answer", "（回答が取得できませんでした）")
         files = data.get("files", [])
 
-        image_urls = [
-            f["url"] for f in files if f.get("type") == "image"
-        ]
+        image_urls = [f["url"] for f in files if f.get("type") == "image"]
 
         return text, image_urls
 
@@ -104,7 +98,6 @@ def chat_with_dify(message):
 # タイトル
 # ======================
 st.title("🏡 和建設 住まい相談AI")
-st.caption("間取り・設備・ローンまでサポート")
 
 # ======================
 # データ
@@ -124,11 +117,11 @@ for msg in st.session_state.messages:
 user_input = st.chat_input("質問を入力してください")
 
 # ======================
-# 入力処理（チャット送信）
+# チャット送信処理
 # ======================
 if user_input:
 
-    # ⭐ポイント加算（チャット送信）
+    # ⭐ポイント +1（送信）
     st.session_state.points += 1
 
     st.session_state.messages.append(
@@ -138,46 +131,48 @@ if user_input:
     with st.chat_message("user", avatar=USER_ICON):
         st.markdown(user_input)
 
-    # ローンモードへ切り替え
+    # ローンモード判定
     if any(w in user_input for w in ["ローン", "返済", "金利"]):
         st.session_state.mode = "loan"
         st.session_state.step = 1
+        st.session_state.room_done = False
 
 # ======================
-# 🏦 ローンUI
+# ローンシミュレーション
 # ======================
 if st.session_state.mode == "loan":
 
     st.divider()
     st.subheader("🏦 ローンシミュレーション")
 
-    # ---- STEP1 部屋選択 ----
+    # ---- STEP1 部屋番号（テキスト入力）----
     if st.session_state.step == 1:
-        st.markdown("**201・202・203・204 から選択してください👇**")
 
-        cols = st.columns(4)
-        rooms = [201, 202, 203, 204]
+        room_input = st.text_input("部屋番号を入力（201 / 202 / 203 / 204）")
 
-        for i, room in enumerate(rooms):
-            if cols[i].button(f"{room}号室"):
+        if room_input in ["201", "202", "203", "204"] and not st.session_state.room_done:
 
-                # ⭐ポイント加算（部屋選択）
-                st.session_state.points += 2
+            st.session_state.room_done = True
 
-                price = df_rooms[df_rooms["room"] == room]["price"].values
+            # ⭐ポイント +1
+            st.session_state.points += 1
 
-                if len(price) > 0:
-                    loan = int(price[0].replace(",", ""))
-                    st.session_state.data["loan"] = loan
-                    st.session_state.step = 2
+            room = int(room_input)
+            price = df_rooms[df_rooms["room"] == room]["price"].values
 
-    # ---- STEP2 年数入力 ----
+            if len(price) > 0:
+                loan = int(price[0].replace(",", ""))
+                st.session_state.data["loan"] = loan
+                st.session_state.step = 2
+
+    # ---- STEP2 返済年数 ----
     elif st.session_state.step == 2:
+
         years = st.number_input("返済年数（年）", 1, 50, 35)
 
         if st.button("次へ"):
 
-            # ⭐ポイント加算（年数確定）
+            # ⭐ポイント +1
             st.session_state.points += 1
 
             st.session_state.data["years"] = years
@@ -185,24 +180,26 @@ if st.session_state.mode == "loan":
 
     # ---- STEP3 金利 ----
     elif st.session_state.step == 3:
+
         rate = st.number_input("年利（例：0.01）", value=0.01)
 
         if st.button("次へ"):
 
-            # ⭐ポイント加算（金利確定）
+            # ⭐ポイント +1
             st.session_state.points += 1
 
             st.session_state.data["rate"] = rate
             st.session_state.step = 4
 
-    # ---- STEP4 返済方式 + 計算 ----
+    # ---- STEP4 計算 ----
     elif st.session_state.step == 4:
+
         method = st.radio("返済方式", ["元利均等", "元金均等"])
 
         if st.button("計算する"):
 
-            # ⭐ポイント加算（計算実行）
-            st.session_state.points += 3
+            # ⭐ポイント +1
+            st.session_state.points += 1
 
             loan = st.session_state.data["loan"]
             years = st.session_state.data["years"]
@@ -237,7 +234,7 @@ if st.session_state.mode == "loan":
             st.session_state.step = 0
 
 # ======================
-# 🤖 通常チャット
+# 通常チャット
 # ======================
 if user_input and st.session_state.mode == "free":
 
@@ -266,7 +263,7 @@ if user_input and st.session_state.mode == "free":
             )
 
 # ======================
-# 📊 シミュレーション結果
+# 結果表示
 # ======================
 if st.session_state.result is not None:
 
