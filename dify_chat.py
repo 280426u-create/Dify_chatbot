@@ -22,27 +22,37 @@ BASE_URL = "https://api.dify.ai/v1"
 
 def chat_with_dify(message):
     url = f"{BASE_URL}/chat-messages"
+
     headers = {
         "Authorization": "Bearer " + DIFY_API_KEY.strip(),
         "Content-Type": "application/json"
     }
+
     payload = {
         "inputs": {},
         "query": str(message),
         "user": "user1"
     }
 
-    r = requests.post(url, headers=headers, json=payload)
-    data = r.json()
+    try:
+        r = requests.post(url, headers=headers, json=payload, timeout=30)
+        r.raise_for_status()
+        data = r.json()
 
-    text = data.get("answer", "")
-    files = data.get("files", [])
-    image_urls = [f["url"] for f in files if f.get("type") == "image"]
+        text = data.get("answer", "（回答が取得できませんでした）")
+        files = data.get("files", [])
 
-    return text, image_urls
+        image_urls = [
+            f["url"] for f in files if f.get("type") == "image"
+        ]
+
+        return text, image_urls
+
+    except Exception as e:
+        return f"⚠️ エラーが発生しました: {e}", []
 
 # ======================
-# セッション
+# セッション初期化
 # ======================
 for key, val in {
     "messages": [],
@@ -96,69 +106,71 @@ for msg in st.session_state.messages:
 user_input = st.chat_input("質問を入力してください")
 
 # ======================
-# 入力処理
+# ユーザー入力処理
 # ======================
 if user_input:
 
+    # ポイント加算
     st.session_state.points += 1
 
+    # 表示
     st.session_state.messages.append(
         {"role": "user", "content": user_input, "avatar": USER_ICON}
     )
-
     with st.chat_message("user", avatar=USER_ICON):
         st.markdown(user_input)
 
-    if "ローン" in user_input:
+    # ローン判定
+    if any(w in user_input for w in ["ローン", "返済", "金利"]):
         st.session_state.mode = "loan"
+        st.session_state.step = 1
 
 # ======================
-# 🏦 ローンモードUI
+# 🏦 ローンUI（独立表示）
 # ======================
 if st.session_state.mode == "loan":
 
-    if st.session_state.step == 0:
-        st.session_state.step = 1
+    st.divider()
+    st.subheader("🏦 ローンシミュレーション")
 
+    # ---- STEP1 部屋選択 ----
     if st.session_state.step == 1:
-        with st.chat_message("assistant", avatar=ASSISTANT_ICON):
-            st.markdown("🏦 部屋番号を選んでください\n\n201 / 202 / 203 / 204")
+        st.markdown("**部屋番号を選択してください（201〜204）**")
 
-            cols = st.columns(4)
+        cols = st.columns(4)
+        rooms = [201, 202, 203, 204]
 
-            rooms = [201, 202, 203, 204]
+        for i, room in enumerate(rooms):
+            if cols[i].button(f"{room}号室"):
+                price = df_rooms[df_rooms["room"] == room]["price"].values
 
-            for i, room in enumerate(rooms):
-                if cols[i].button(f"{room}"):
+                if len(price) > 0:
+                    loan = int(price[0].replace(",", ""))
+                    st.session_state.data["loan"] = loan
+                    st.session_state.step = 2
 
-                    price = df_rooms[df_rooms["room"] == room]["price"].values
-
-                    if len(price) > 0:
-                        loan = int(price[0].replace(",", ""))
-                        st.session_state.data["loan"] = loan
-                        st.session_state.step = 2
-                        st.rerun()
-
+    # ---- STEP2 年数 ----
     elif st.session_state.step == 2:
-        years = st.number_input("返済年数（年）", min_value=1, max_value=50, value=35)
+        years = st.number_input("返済年数（年）", 1, 50, 35)
 
-        if st.button("次へ（年利入力）"):
+        if st.button("次へ（金利入力）"):
             st.session_state.data["years"] = years
             st.session_state.step = 3
-            st.rerun()
 
+    # ---- STEP3 金利 ----
     elif st.session_state.step == 3:
         rate = st.number_input("年利（例：0.01）", value=0.01)
 
         if st.button("次へ（返済方式）"):
             st.session_state.data["rate"] = rate
             st.session_state.step = 4
-            st.rerun()
 
+    # ---- STEP4 計算 ----
     elif st.session_state.step == 4:
-        method = st.radio("返済方式を選択", ["元利均等", "元金均等"])
+        method = st.radio("返済方式", ["元利均等", "元金均等"])
 
         if st.button("計算する"):
+
             loan = st.session_state.data["loan"]
             years = st.session_state.data["years"]
             rate = st.session_state.data["rate"]
@@ -188,17 +200,18 @@ if st.session_state.mode == "loan":
                 columns=["回数", "毎月返済額", "元金", "利息", "残高"]
             )
 
+            # モード終了
             st.session_state.mode = "free"
             st.session_state.step = 0
-            st.rerun()
 
 # ======================
-# 🤖 通常チャット
+# 🤖 通常チャット（止まらない設計）
 # ======================
-elif user_input:
+if user_input and st.session_state.mode == "free":
 
     with st.chat_message("assistant", avatar=ASSISTANT_ICON):
         with st.spinner("AIが回答中..."):
+
             text, urls = chat_with_dify(user_input)
 
             placeholder = st.empty()
@@ -209,13 +222,24 @@ elif user_input:
                 placeholder.markdown(display)
                 time.sleep(0.01)
 
+            if urls:
+                st.markdown("### 🏠 間取り・設備")
+                cols = st.columns(6)
+                for i, url in enumerate(urls):
+                    with cols[i % 6]:
+                        st.image(url, width=60)
+
+            st.session_state.messages.append(
+                {"role": "assistant", "content": text, "avatar": ASSISTANT_ICON}
+            )
+
 # ======================
-# 結果表示
+# 📊 ローン結果
 # ======================
 if st.session_state.result is not None:
 
     st.divider()
-    st.subheader("📊 ローン結果")
+    st.subheader("📊 シミュレーション結果")
 
     st.line_chart(st.session_state.result.set_index("回数")["残高"])
     st.dataframe(st.session_state.result)
