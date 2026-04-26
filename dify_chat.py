@@ -23,15 +23,15 @@ st.markdown("""
 /* 右上ポイント表示（シンプル） */
 .point-bar {
     position: fixed;
-    top: 15px;
-    right: 20px;
+    top: 70px;
+    right: 30px;
     background: rgba(0, 0, 0, 0.8);
     color: white;
     padding: 10px 18px;
     border-radius: 10px;
     font-weight: bold;
     font-size: 18px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.35);
     z-index: 9999;
 }
 
