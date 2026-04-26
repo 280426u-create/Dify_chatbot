@@ -96,23 +96,29 @@ st.markdown("""
 st.title("🏡 和建設 住まい相談AI")
 st.caption("間取り・設備・品質・ローンまでサポート 🌿")
 
-# ======================
-# データ
-# ======================
-df_rooms = pd.read_csv("rooms.csv")
-
-# ======================
-# セッション
-# ======================
+# 🎯 ポイント表示
 for key, val in {
     "messages": [],
     "mode": "free",
     "step": 0,
     "data": {},
     "result": None,
+    "points": 0,     # ← ポイントを追加
 }.items():
     if key not in st.session_state:
         st.session_state[key] = val
+
+# ポイント可視化（メトリクス＋プログレスバー）
+st.metric("✨ 獲得ポイント", f"{st.session_state.points} pt")
+
+max_points = 50  # ゴール値は自由に変更可能
+progress = min(st.session_state.points / max_points, 1.0)
+st.progress(progress)
+
+# ======================
+# データ
+# ======================
+df_rooms = pd.read_csv("rooms.csv")
 
 # ======================
 # 履歴表示
@@ -127,6 +133,9 @@ for msg in st.session_state.messages:
 user_input = st.chat_input("質問を入力してください")
 
 if user_input:
+
+    # 🎯 ユーザー入力ごとにポイント+1
+    st.session_state.points += 1
 
     # ユーザー表示
     st.session_state.messages.append(
@@ -224,7 +233,7 @@ if user_input:
             st.markdown(bot_msg)
 
     # ======================
-    # Dify（ぬるぬる＋画像極小）
+    # Dify（通常モード）
     # ======================
     else:
         with st.chat_message("assistant", avatar=ASSISTANT_ICON):
@@ -241,14 +250,13 @@ if user_input:
                     placeholder.markdown(display)
                     time.sleep(0.008)
 
-                # 🔥 画像（確実に小さい）
+                # 🔥 画像（極小表示）
                 if urls:
                     st.markdown("### 🏠 間取り・設備・品質")
-
-                    cols = st.columns(6)  # ←ここ重要
+                    cols = st.columns(6)
                     for i, url in enumerate(urls):
                         with cols[i % 6]:
-                            st.image(url, width=60)  # ←ここ超重要（小さい）
+                            st.image(url, width=60)
 
                 st.session_state.messages.append(
                     {"role": "assistant", "content": text, "avatar": ASSISTANT_ICON}
