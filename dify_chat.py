@@ -17,7 +17,7 @@ USER_ICON = "👤"
 # ======================
 # Dify設定
 # ======================
-DIFY_API_KEY = "app-xxxxxxxxxxxxxxxx"
+DIFY_API_KEY = "app-Z8GvU88Jz1vwO81JXnV8SLL9"
 BASE_URL = "https://api.dify.ai/v1"
 
 def chat_with_dify(message):
